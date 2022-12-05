@@ -60,8 +60,12 @@ class Client():
   def send_file_list(self, msg):
     print("Files available:", msg[1]) # Print the file available
     file_list = msg[1][2:-2].replace("'", "").replace(" ", "").split(',')
-    choice = self.selectChoice("Which file do you want to download ?", file_list) # Make a selection of the file to download
-    if choice == len(msg[1]): return # Break (close socket) to 
+    file_list.insert(0, "Exit")
+    print("My info: IP:", self.ip, "PORT:", self.port)
+    choice = self.selectChoice("Which file do you want to access ?", file_list) # Make a selection of the file to access
+    if choice == 0:
+      self.socket.close()
+      exit()
     self.socket.send(("2;" + str(file_list[int(choice)])).encode()) # Send the wanted file to the server
 
   def listen(self):
@@ -82,6 +86,8 @@ class Client():
     conn.send(("1;" + str(files)).encode())
     while True:
       msg = conn.recv(MAX_LENGTH).decode().split(';')
+      # print("new msg: " + msg)
+      if (msg == ['']): break
       if (int(msg[0]) == 0):
         files = [item for item in os.listdir(SHARED_FOLDER) if os.path.isfile(os.path.join(SHARED_FOLDER, item))]
         conn.send(("1;" + str(files)).encode())
@@ -104,23 +110,23 @@ class Client():
         filename = msg[2]
         choice = self.selectChoice('What do you want to do ?', ['Download', 'Visualize', 'Cancel'])
         if choice == 0:
+          print("Receiving file")
           self.downloadFile(msg)
+          print("File " + filename + " successfully downloaded.")
         elif choice == 1:
           self.downloadFile(msg)
           self.visualize(msg)
           self.delFile(msg)
-        elif choice == 2:
-          self.socket.send("0".encode())
+        self.socket.send("0".encode())
     # self.socket.close()
 
   def downloadFile(self, msg):
-    print("Receiving file")
     data = self.socket.recv(int(msg[1]))
     filename = msg[2]
     file = open(os.path.join(DOWNLOAD_FOLDER, filename), 'wb')
     file.write(data)
     file.close()
-    
+
   def visualize(self, msg):
     if (msg[2].find('.csv') != -1):
       try:
@@ -142,7 +148,9 @@ class Client():
         plt.show()
       except:
         print("Error: The file is not a valid png file")
-        
+    else:
+      print("Error: You can't visualize this file")
+
   def delFile(self, msg):
     try:
       os.remove(DOWNLOAD_FOLDER + msg[2])
